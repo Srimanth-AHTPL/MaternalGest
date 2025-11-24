@@ -8,20 +8,23 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
-              },
+      },
       plugins: [react()],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-              },
+      },
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
-                  }
-                },
-      base: '/maternal-health-hub/',
+        }
+      },
+      base: '/maternal-health-hub/', // ← CHANGE THIS LINE
       build: {
-    chunkSizeWarningLimit: 1000,
+        chunkSizeWarningLimit: 1000,
+        assetsDir: 'assets',
+        outDir: 'dist',
+        sourcemap: false,
       },            
     };
 });
