@@ -85,7 +85,7 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchPatients = async () => {
       try {
-        const response = await fetch('http://localhost:8080/api/patients');
+        const response = await fetch('https://healthgestbackend-na12.onrender.com/api/patients');
         const data: Patient[] = await response.json();
         setPatients(data);
         if (data.length > 0) setSelectedPatient(data[0].PATIENT_ID);
@@ -104,7 +104,7 @@ const Dashboard: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(`http://localhost:8080/api/dashboard?patientId=${selectedPatient}`);
+        const response = await fetch(`https://healthgestbackend-na12.onrender.com/api/dashboard?patientId=${selectedPatient}`);
         if (!response.ok) throw new Error('Failed to fetch dashboard data');
         const data: DashboardData = await response.json();
         setDashboardData(data);

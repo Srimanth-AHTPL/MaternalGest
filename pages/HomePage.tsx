@@ -53,7 +53,7 @@ const HomePage: React.FC<HomePageProps> = ({ setPage }) => {
     useEffect(() => {
         const fetchAddresses = async () => {
             try {
-                const response = await fetch('https://healthgestbackend.onrender.com/api/patient-addresses');
+                const response = await fetch('https://healthgestbackend-na12.onrender.com/api/patient-addresses');
                 if (!response.ok) {
                     throw new Error('Failed to fetch addresses');
                 }
@@ -79,8 +79,8 @@ const HomePage: React.FC<HomePageProps> = ({ setPage }) => {
             setError(null);
             try {
                 const url = selectedAddress === 'all' 
-                    ? 'https://healthgestbackend.onrender.com/api/home-summary'
-                    : `https://healthgestbackend.onrender.com/api/home-summary-filtered?address=${encodeURIComponent(selectedAddress)}`;
+                    ? 'https://healthgestbackend-na12.onrender.com/api/home-summary'
+                    : `https://healthgestbackend-na12.onrender.com/api/home-summary-filtered?address=${encodeURIComponent(selectedAddress)}`;
                 
                 const response = await fetch(url);
                 if (!response.ok) {

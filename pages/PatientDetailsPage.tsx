@@ -5,8 +5,8 @@ import { PatientDashboard } from '../components/PatientDashboard.tsx';
 const PatientDetailsPage: React.FC = () => {
     return (
         <PatientDashboard
-            patientListEndpoint="https://healthgestbackend.onrender.com/api/patients"
-            dashboardApiEndpoint="https://healthgestbackend.onrender.com/api/patientDetails"
+            patientListEndpoint="https://healthgestbackend-na12.onrender.com/api/patients"
+            dashboardApiEndpoint="https://healthgestbackend-na12.onrender.com/api/patientDetails"
             selectorLabel="Select Patient"
             noPatientsMessage="No patients found"
             isOngoing={false}
