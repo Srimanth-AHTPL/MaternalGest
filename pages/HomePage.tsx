@@ -248,6 +248,24 @@ const HomePage: React.FC<HomePageProps> = ({ setPage }) => {
                 {/* Data Content */}
                 {!isLoading && summaryData && (
                     <div className="space-y-8">
+
+
+                        {/* KPI Grid - Larger cards */}
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+                                Key Metrics
+                            </h2>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {kpis.map((kpi, index) => (
+                                    <ClickableHomeKpiCard 
+                                        key={index}
+                                        data={kpi} 
+                                        onClick={kpi.onClick}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                        
                         {/* Top Stats Row - Three columns now */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             <DeliveryDistribution 
@@ -277,21 +295,7 @@ const HomePage: React.FC<HomePageProps> = ({ setPage }) => {
                             </div>
                         </div>
 
-                        {/* KPI Grid - Larger cards */}
-                        <div>
-                            <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-                                Key Metrics
-                            </h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {kpis.map((kpi, index) => (
-                                    <ClickableHomeKpiCard 
-                                        key={index}
-                                        data={kpi} 
-                                        onClick={kpi.onClick}
-                                    />
-                                ))}
-                            </div>
-                        </div>
+
                     </div>
                 )}
             </div>
