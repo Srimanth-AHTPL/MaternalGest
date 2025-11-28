@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     // ✅ Must match your GitHub repo name
-    base: '/Maternal_Gest_front_end/',
+    base: '/MaternalGest/',
     build: {
       chunkSizeWarningLimit: 1000,
       assetsDir: 'assets',
