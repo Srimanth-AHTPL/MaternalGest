@@ -15,64 +15,79 @@ const COLORS = {
   AVERAGE: '#5A9690'           // Green for average line
 };
 
-// Helper function to merge and align all data
-const mergeChartData = (mainData: any[], averageData: any[], predictionData: any[]) => {
+// Helper function to ensure prediction connects with actual data
+const createSeamlessDataset = (mainData: any[], averageData: any[], predictionData: any[]) => {
   if (!mainData || mainData.length === 0) return [];
   
-  // Create a map of all available weeks from main data
-  const weekMap = new Map();
+  // Find the last actual data point
+  const lastActualData = mainData[mainData.length - 1];
+  const lastActualWeek = lastActualData?.GESTATIONAL_AGE_WEEKS;
   
-  // Add main data
-  mainData.forEach(item => {
-    if (item.GESTATIONAL_AGE_WEEKS != null) {
-      weekMap.set(item.GESTATIONAL_AGE_WEEKS, {
-        ...item,
-        GESTATIONAL_AGE_WEEKS: item.GESTATIONAL_AGE_WEEKS
-      });
+  // Find the maximum week from all data sources
+  const allWeeks = [
+    ...mainData.map(item => item.GESTATIONAL_AGE_WEEKS),
+    ...(averageData || []).map(item => item.GESTATIONAL_AGE_WEEKS),
+    ...(predictionData || []).map(item => item.GESTATIONAL_AGE_WEEKS)
+  ].filter(week => week != null);
+  
+  const maxWeek = Math.max(...allWeeks, 40);
+  const minWeek = 2;
+  
+  // Create week array from minWeek to maxWeek
+  const weeks = Array.from({ length: maxWeek - minWeek + 1 }, (_, i) => minWeek + i);
+  
+  // Create data maps for quick lookup
+  const mainDataMap = new Map(mainData.map(item => [item.GESTATIONAL_AGE_WEEKS, item]));
+  const averageDataMap = new Map((averageData || []).map(item => [item.GESTATIONAL_AGE_WEEKS, item]));
+  const predictionDataMap = new Map((predictionData || []).map(item => [item.GESTATIONAL_AGE_WEEKS, item]));
+  
+  // Build complete dataset
+  return weeks.map(week => {
+    const mainItem = mainDataMap.get(week) || {};
+    const avgItem = averageDataMap.get(week) || {};
+    const predItem = predictionDataMap.get(week) || {};
+    
+    // If this is the last actual week, ensure prediction starts from here
+    let predictedWeight = predItem.PREDICTED_WEIGHT;
+    let predictedFundalHeight = predItem.PREDICTED_FUNDAL_HEIGHT;
+    let predictedHemoglobin = predItem.PREDICTED_HEMOGLOBIN_LEVEL;
+    let predictedSystolic = predItem.PREDICTED_BP_SYSTOLIC;
+    let predictedDiastolic = predItem.PREDICTED_BP_DIASTOLIC;
+    
+    // If this is the last actual data week, use actual values as starting point for predictions
+    if (week === lastActualWeek) {
+      predictedWeight = mainItem.MATERNAL_WEIGHT || predictedWeight;
+      predictedFundalHeight = mainItem.FUNDAL_HEIGHT || predictedFundalHeight;
+      predictedHemoglobin = mainItem.HEMOGLOBIN_LEVEL || predictedHemoglobin;
+      predictedSystolic = mainItem.BP_SYSTOLIC || predictedSystolic;
+      predictedDiastolic = mainItem.BP_DIASTOLIC || predictedDiastolic;
     }
+    
+    return {
+      GESTATIONAL_AGE_WEEKS: week,
+      // Main data
+      MATERNAL_WEIGHT: mainItem.MATERNAL_WEIGHT,
+      FUNDAL_HEIGHT: mainItem.FUNDAL_HEIGHT,
+      HEMOGLOBIN_LEVEL: mainItem.HEMOGLOBIN_LEVEL,
+      BP_SYSTOLIC: mainItem.BP_SYSTOLIC,
+      BP_DIASTOLIC: mainItem.BP_DIASTOLIC,
+      // Average data
+      AVG_WEIGHT: avgItem.AVG_WEIGHT,
+      AVG_FUNDAL: avgItem.AVG_FUNDAL,
+      AVG_HB: avgItem.AVG_HB,
+      AVG_SYSTOLIC: avgItem.AVG_SYSTOLIC,
+      AVG_DIASTOLIC: avgItem.AVG_DIASTOLIC,
+      // Prediction data - ensuring seamless connection
+      PREDICTED_WEIGHT: predictedWeight,
+      PREDICTED_FUNDAL_HEIGHT: predictedFundalHeight,
+      PREDICTED_HEMOGLOBIN_LEVEL: predictedHemoglobin,
+      PREDICTED_BP_SYSTOLIC: predictedSystolic,
+      PREDICTED_BP_DIASTOLIC: predictedDiastolic
+    };
   });
-  
-  // Merge average data (ensure it matches the same weeks)
-  if (averageData && averageData.length > 0) {
-    averageData.forEach(avgItem => {
-      const week = avgItem.GESTATIONAL_AGE_WEEKS;
-      if (week != null) {
-        const existing = weekMap.get(week) || { GESTATIONAL_AGE_WEEKS: week };
-        weekMap.set(week, {
-          ...existing,
-          AVG_WEIGHT: avgItem.AVG_WEIGHT,
-          AVG_FUNDAL: avgItem.AVG_FUNDAL,
-          AVG_HB: avgItem.AVG_HB,
-          AVG_SYSTOLIC: avgItem.AVG_SYSTOLIC,
-          AVG_DIASTOLIC: avgItem.AVG_DIASTOLIC
-        });
-      }
-    });
-  }
-  
-  // Merge prediction data (ensure it matches the same weeks)
-  if (predictionData && predictionData.length > 0) {
-    predictionData.forEach(predItem => {
-      const week = predItem.GESTATIONAL_AGE_WEEKS;
-      if (week != null) {
-        const existing = weekMap.get(week) || { GESTATIONAL_AGE_WEEKS: week };
-        weekMap.set(week, {
-          ...existing,
-          PREDICTED_WEIGHT: predItem.PREDICTED_WEIGHT,
-          PREDICTED_FUNDAL_HEIGHT: predItem.PREDICTED_FUNDAL_HEIGHT,
-          PREDICTED_HEMOGLOBIN_LEVEL: predItem.PREDICTED_HEMOGLOBIN_LEVEL,
-          PREDICTED_BP_SYSTOLIC: predItem.PREDICTED_BP_SYSTOLIC,
-          PREDICTED_BP_DIASTOLIC: predItem.PREDICTED_BP_DIASTOLIC
-        });
-      }
-    });
-  }
-  
-  // Convert back to array and sort by week
-  return Array.from(weekMap.values()).sort((a, b) => a.GESTATIONAL_AGE_WEEKS - b.GESTATIONAL_AGE_WEEKS);
 };
 
-// Helper function to calculate Y-axis domain
+// Helper function to calculate Y-axis domain with clean numbers
 const calculateDomain = (data: any[], keys: string[]) => {
   if (!data || data.length === 0) return [0, 100];
   
@@ -85,9 +100,19 @@ const calculateDomain = (data: any[], keys: string[]) => {
   const min = Math.min(...allValues);
   const max = Math.max(...allValues);
   
-  // Add 10% padding
   const padding = (max - min) * 0.1;
-  return [Math.max(0, min - padding), max + padding];
+  
+  // Round to nice numbers for Y-axis
+  const roundedMin = Math.floor(Math.max(0, min - padding));
+  const roundedMax = Math.ceil(max + padding);
+  
+  return [roundedMin, roundedMax];
+};
+
+// Helper function to format tooltip values
+const formatTooltipValue = (value: number, unit: string) => {
+  if (value == null) return 'No data';
+  return `${Math.round(value)} ${unit}`;
 };
 
 // --- Base Chart Component ---
@@ -104,42 +129,42 @@ const ChartWrapper: React.FC<{ kpi: KpiData, children: ReactNode }> = ({ kpi, ch
 
 // --- Maternal Weight Chart ---
 export const MaternalWeightChart: React.FC<{ data: any[], averageData: any[], kpiData: KpiData }> = ({ data, averageData, kpiData }) => {
-  // Merge all data to ensure alignment
-  const mergedData = useMemo(() => 
-    mergeChartData(data, averageData, data), // Using main data for predictions too
+  const seamlessData = useMemo(() => 
+    createSeamlessDataset(data, averageData, data),
     [data, averageData]
   );
   
   const domain = useMemo(() => 
-    calculateDomain(mergedData, ['MATERNAL_WEIGHT', 'PREDICTED_WEIGHT', 'AVG_WEIGHT']),
-    [mergedData]
+    calculateDomain(seamlessData, ['MATERNAL_WEIGHT', 'PREDICTED_WEIGHT', 'AVG_WEIGHT']),
+    [seamlessData]
   );
   
   return (
     <ChartWrapper kpi={kpiData}>
-      <AreaChart data={mergedData} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
+      <AreaChart data={seamlessData} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
         <XAxis
           dataKey="GESTATIONAL_AGE_WEEKS"
           stroke="#6b7280"
           fontSize={12}
           tickFormatter={(val) => `${val}w`}
+          domain={[2, 'dataMax']}
         />
         <YAxis
           stroke="#6b7280"
           fontSize={12}
-          tickFormatter={(val) => `${val}kg`}
+          tickFormatter={(val) => `${Math.round(val)}`} // Clean numbers only
           domain={domain}
         />
         <Tooltip
           formatter={(value: number, name: string) => {
-            return [`${value} kg`, name];
+            return [formatTooltipValue(value, 'kg'), name];
           }}
           labelFormatter={(label) => `Week ${label}`}
         />
         <Legend />
 
-        {/* Prediction Data (Area - just like actual data) */}
+        {/* Prediction Data (Area) */}
         <Area
           type="monotone"
           dataKey="PREDICTED_WEIGHT"
@@ -149,8 +174,8 @@ export const MaternalWeightChart: React.FC<{ data: any[], averageData: any[], kp
           strokeWidth={2}
           strokeDasharray="5 5"
           name="Predicted Weight"
-          dot={{ r: 4, stroke: COLORS.PREDICTION_LINE, strokeWidth: 2, fill: 'white' }}
-          activeDot={{ r: 6 }}
+          dot={{ r: 3, stroke: COLORS.PREDICTION_LINE, strokeWidth: 2, fill: 'white' }}
+          activeDot={{ r: 5 }}
           connectNulls={true}
         />
 
@@ -187,35 +212,36 @@ export const MaternalWeightChart: React.FC<{ data: any[], averageData: any[], kp
 
 // --- Fetal Growth Chart ---
 export const FetalGrowthChart: React.FC<{ data: any[], averageData: any[], kpiData: KpiData }> = ({ data, averageData, kpiData }) => {
-  const mergedData = useMemo(() => 
-    mergeChartData(data, averageData, data),
+  const seamlessData = useMemo(() => 
+    createSeamlessDataset(data, averageData, data),
     [data, averageData]
   );
   
   const domain = useMemo(() => 
-    calculateDomain(mergedData, ['FUNDAL_HEIGHT', 'PREDICTED_FUNDAL_HEIGHT', 'AVG_FUNDAL']),
-    [mergedData]
+    calculateDomain(seamlessData, ['FUNDAL_HEIGHT', 'PREDICTED_FUNDAL_HEIGHT', 'AVG_FUNDAL']),
+    [seamlessData]
   );
   
   return (
     <ChartWrapper kpi={kpiData}>
-      <AreaChart data={mergedData} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
+      <AreaChart data={seamlessData} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
         <XAxis
           dataKey="GESTATIONAL_AGE_WEEKS"
           stroke="#6b7280"
           fontSize={12}
           tickFormatter={(val) => `${val}w`}
+          domain={[2, 'dataMax']}
         />
         <YAxis
           stroke="#6b7280"
           fontSize={12}
-          tickFormatter={(val) => `${val}cm`}
+          tickFormatter={(val) => `${Math.round(val)}`} // Clean numbers only
           domain={domain}
         />
         <Tooltip
           formatter={(value: number, name: string) => {
-            return [`${value} cm`, name];
+            return [formatTooltipValue(value, 'cm'), name];
           }}
           labelFormatter={(label) => `Week ${label}`}
         />
@@ -231,8 +257,8 @@ export const FetalGrowthChart: React.FC<{ data: any[], averageData: any[], kpiDa
           strokeWidth={2}
           strokeDasharray="5 5"
           name="Predicted Height"
-          dot={{ r: 4, stroke: COLORS.PREDICTION_LINE, strokeWidth: 2, fill: 'white' }}
-          activeDot={{ r: 6 }}
+          dot={{ r: 3, stroke: COLORS.PREDICTION_LINE, strokeWidth: 2, fill: 'white' }}
+          activeDot={{ r: 5 }}
           connectNulls={true}
         />
 
@@ -269,35 +295,36 @@ export const FetalGrowthChart: React.FC<{ data: any[], averageData: any[], kpiDa
 
 // --- Hemoglobin Chart ---
 export const HemoglobinChart: React.FC<{ data: any[], averageData: any[], kpiData: KpiData }> = ({ data, averageData, kpiData }) => {
-  const mergedData = useMemo(() => 
-    mergeChartData(data, averageData, data),
+  const seamlessData = useMemo(() => 
+    createSeamlessDataset(data, averageData, data),
     [data, averageData]
   );
   
   const domain = useMemo(() => 
-    calculateDomain(mergedData, ['HEMOGLOBIN_LEVEL', 'PREDICTED_HEMOGLOBIN_LEVEL', 'AVG_HB']),
-    [mergedData]
+    calculateDomain(seamlessData, ['HEMOGLOBIN_LEVEL', 'PREDICTED_HEMOGLOBIN_LEVEL', 'AVG_HB']),
+    [seamlessData]
   );
   
   return (
     <ChartWrapper kpi={kpiData}>
-      <AreaChart data={mergedData} margin={{ top: 50, right: 20, left: 10, bottom: 5 }}>
+      <AreaChart data={seamlessData} margin={{ top: 50, right: 20, left: 10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
         <XAxis
           dataKey="GESTATIONAL_AGE_WEEKS"
           stroke="#6b7280"
           fontSize={12}
           tickFormatter={(val) => `${val}w`}
+          domain={[2, 'dataMax']}
         />
         <YAxis
           stroke="#6b7280"
           fontSize={12}
-          tickFormatter={(val) => `${val} g/dL`}
+          tickFormatter={(val) => `${Math.round(val)}`} // Clean numbers only
           domain={domain}
         />
         <Tooltip
           formatter={(value: number, name: string) => {
-            return [`${value} g/dL`, name];
+            return [formatTooltipValue(value, 'g/dL'), name];
           }}
           labelFormatter={(label) => `Week ${label}`}
         />
@@ -313,8 +340,8 @@ export const HemoglobinChart: React.FC<{ data: any[], averageData: any[], kpiDat
           strokeWidth={2}
           strokeDasharray="5 5"
           name="Predicted Hb"
-          dot={{ r: 4, stroke: COLORS.PREDICTION_LINE, strokeWidth: 2, fill: 'white' }}
-          activeDot={{ r: 6 }}
+          dot={{ r: 3, stroke: COLORS.PREDICTION_LINE, strokeWidth: 2, fill: 'white' }}
+          activeDot={{ r: 5 }}
           connectNulls={true}
         />
 
@@ -351,37 +378,43 @@ export const HemoglobinChart: React.FC<{ data: any[], averageData: any[], kpiDat
 
 // --- Blood Pressure Chart ---
 export const BloodPressureChart: React.FC<{ data: any[], averageData: any[], kpiData: KpiData }> = ({ data, averageData, kpiData }) => {
-  const mergedData = useMemo(() => 
-    mergeChartData(data, averageData, data),
+  const seamlessData = useMemo(() => 
+    createSeamlessDataset(data, averageData, data),
     [data, averageData]
   );
   
   const domain = useMemo(() => 
-    calculateDomain(mergedData, [
+    calculateDomain(seamlessData, [
       'BP_SYSTOLIC', 'BP_DIASTOLIC', 
       'PREDICTED_BP_SYSTOLIC', 'PREDICTED_BP_DIASTOLIC',
       'AVG_SYSTOLIC', 'AVG_DIASTOLIC'
     ]),
-    [mergedData]
+    [seamlessData]
   );
   
   return (
     <ChartWrapper kpi={kpiData}>
-      <AreaChart data={mergedData} margin={{ top: 10, right: 20, left: 30, bottom: 5 }}>
+      <AreaChart data={seamlessData} margin={{ top: 10, right: 20, left: 30, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
         <XAxis
           dataKey="GESTATIONAL_AGE_WEEKS"
           stroke="#6b7280"
           fontSize={12}
           tickFormatter={(val) => `${val}w`}
+          domain={[2, 'dataMax']}
         />
         <YAxis
           stroke="#6b7280"
           fontSize={12}
-          tickFormatter={(val) => `${val} mmHg`}
+          tickFormatter={(val) => `${Math.round(val)}`} // Clean numbers only
           domain={domain}
         />
-        <Tooltip labelFormatter={(label) => `Week ${label}`} />
+        <Tooltip 
+          formatter={(value: number, name: string) => {
+            return [formatTooltipValue(value, 'mmHg'), name];
+          }}
+          labelFormatter={(label) => `Week ${label}`}
+        />
         <Legend />
 
         {/* Prediction Data - Systolic (Area) */}
@@ -394,8 +427,8 @@ export const BloodPressureChart: React.FC<{ data: any[], averageData: any[], kpi
           strokeWidth={2}
           strokeDasharray="5 5"
           name="Predicted Systolic"
-          dot={{ r: 4, stroke: "#dc2626", strokeWidth: 2, fill: 'white' }}
-          activeDot={{ r: 6 }}
+          dot={{ r: 3, stroke: "#dc2626", strokeWidth: 2, fill: 'white' }}
+          activeDot={{ r: 5 }}
           connectNulls={true}
         />
 
@@ -409,8 +442,8 @@ export const BloodPressureChart: React.FC<{ data: any[], averageData: any[], kpi
           strokeWidth={2}
           strokeDasharray="5 5"
           name="Predicted Diastolic"
-          dot={{ r: 4, stroke: "#8b5cf6", strokeWidth: 2, fill: 'white' }}
-          activeDot={{ r: 6 }}
+          dot={{ r: 3, stroke: "#8b5cf6", strokeWidth: 2, fill: 'white' }}
+          activeDot={{ r: 5 }}
           connectNulls={true}
         />
 
@@ -467,5 +500,11 @@ export const BloodPressureChart: React.FC<{ data: any[], averageData: any[], kpi
         />
       </AreaChart>
     </ChartWrapper>
+
+
+
+
+
+
   );
 };
