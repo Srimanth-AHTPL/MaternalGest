@@ -53,7 +53,7 @@ const HomePage: React.FC<HomePageProps> = ({ setPage }) => {
     useEffect(() => {
         const fetchAddresses = async () => {
             try {
-                const response = await fetch('https://healthgestbackend-na12.onrender.com/api/patient-addresses');
+                const response = await fetch('https://maternal-gest-backend.onrender.com/api/patient-addresses');
                 if (!response.ok) {
                     throw new Error('Failed to fetch addresses');
                 }
