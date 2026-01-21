@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { ICONS } from '../constants.tsx';
 import type { HomeKpiData, Page } from '../types.ts';
 import { HomeKpiCard, KpiCardSkeleton } from '../components/SharedComponents.tsx';
-
 interface HomeSummaryData {
     success?: boolean;
     totalPatients: number;
